@@ -100,7 +100,7 @@ func Vips(imageName string, imageBuffer []byte, hash, thumbPath string, width, h
 		log.Debugf("vips: %s in %s (set icc profile for interop index tag)", vipsErr(err), logName)
 	}
 
-	// Create thumbnail image.
+	// Create thumbnail image. libvips 8.18+ resizes an attached Ultra HDR gain map with the base image.
 	if err = img.ThumbnailWithSize(width, height, crop, size); err != nil {
 		log.Debugf("vips: %s in %s (create thumbnail)", vipsErr(err), logName)
 		return "", nil, err
@@ -114,15 +114,18 @@ func Vips(imageName string, imageBuffer []byte, hash, thumbPath string, width, h
 		return "", nil, err
 	}
 
-	// Remove metadata from thumbnail.
-	if err = img.RemoveMetadata(); err != nil {
+	formatType := fs.FileType(thumbName)
+	preserveGainmap := formatType == fs.ImageJpeg && vipsHasGainmap(img)
+
+	// Keep gain-map data, its HDRGM parameters, and XMP only when writing an Ultra HDR JPEG.
+	if err = vipsRemoveThumbnailMetadata(img, preserveGainmap); err != nil {
 		log.Debugf("vips: %s in %s (remove metadata)", vipsErr(err), logName)
 		return "", nil, err
 	}
 
 	// Export to standard image format.
 	var format string
-	switch fs.FileType(thumbName) {
+	switch formatType {
 	case fs.ImagePng:
 		format = "png"
 		pngParams := VipsPngExportParams(width, height)

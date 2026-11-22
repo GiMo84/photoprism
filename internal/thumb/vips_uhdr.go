@@ -19,8 +19,12 @@ func vipsHasGainmap(img *vips.ImageRef) bool {
 	return false
 }
 
-// vipsRemoveMetadataPreservingGainmap removes ordinary metadata while keeping Ultra HDR data for JPEG export.
-func vipsRemoveMetadataPreservingGainmap(img *vips.ImageRef) error {
+// vipsRemoveThumbnailMetadata strips ordinary metadata, retaining HDR gain-map data and its tags only when requested.
+func vipsRemoveThumbnailMetadata(img *vips.ImageRef, preserveGainmap bool) error {
+	if !preserveGainmap {
+		return img.RemoveMetadata()
+	}
+
 	return img.RemoveMetadata(
 		"gainmap-data",
 		"gainmap",
